@@ -27,6 +27,7 @@ export default defineSchema({
     news: defineTable({
         title: v.string(),
         content: v.string(),
+        category: v.string(), // e.g., "OFFICIAL NEWS", "RESULTS"
         image: v.optional(v.string()),
         publishedDate: v.number(), // timestamp
     }),
@@ -36,6 +37,8 @@ export default defineSchema({
         date: v.string(),
         location: v.string(),
         description: v.string(),
+        type: v.union(v.literal("tickets"), v.literal("soon")),
+        isBadge: v.optional(v.boolean()),
     }),
 
     registrations: defineTable({

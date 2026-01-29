@@ -9,27 +9,26 @@ export default function LiveResults() {
     return (
         <section className="py-20 bg-black text-white overflow-hidden">
             <div className="max-w-[1366px] mx-auto px-6">
-                <div className="flex items-center justify-between mb-12">
-                    <div>
-                        <span className="text-brand-blue font-heading font-bold uppercase tracking-widest text-sm flex items-center gap-2">
-                            <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse transition-all shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span>
-                            Live Results
+                <div className="flex items-center justify-between mb-16 px-2">
+                    <div className="flex flex-col">
+                        <span className="text-brand-blue font-heading font-black uppercase tracking-[0.4em] text-[10px] flex items-center gap-3 mb-4">
+                            <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.8)]"></span>
+                            LIVE UPDATES
                         </span>
-                        <h2 className="text-4xl md:text-5xl font-slab font-bold uppercase mt-2">Update Skor Terkini</h2>
+                        <h2 className="text-5xl md:text-7xl font-heading font-black uppercase tracking-tighter italic text-white leading-none">
+                            SKOR <span className="text-zinc-500">TERKINI</span>
+                        </h2>
                     </div>
-                    <button className="hidden md:block border border-white/20 px-6 py-2 rounded-full hover:bg-white/10 transition-colors uppercase text-xs tracking-widest">
-                        Lihat Semua Hasil
-                    </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {!results ? (
                         [...Array(3)].map((_, i) => (
-                            <div key={i} className="bg-white/5 border border-white/10 p-6 rounded-xl animate-pulse h-[180px]"></div>
+                            <div key={i} className="bg-zinc-900/20 border border-white/5 p-10 rounded-[2.5rem] animate-pulse h-[220px]"></div>
                         ))
                     ) : results.length === 0 ? (
-                        <div className="col-span-full text-center py-10 text-white/40 font-body">
-                            Belum ada hasil perlombaan terbaru.
+                        <div className="col-span-full text-center py-24 bg-zinc-900/10 border border-zinc-900 border-dashed rounded-[2.5rem]">
+                            <p className="text-zinc-700 font-body italic">Belum ada hasil perlombaan terbaru.</p>
                         </div>
                     ) : (
                         results.map((item, index) => (
@@ -39,20 +38,25 @@ export default function LiveResults() {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.1 }}
                                 viewport={{ once: true }}
-                                className="bg-white/5 border border-white/10 p-6 rounded-xl hover:border-brand-blue/50 transition-all group"
+                                whileHover={{ y: -5 }}
+                                className="bg-zinc-900/20 border border-white/5 p-10 rounded-[2.5rem] hover:border-brand-blue/30 hover:bg-zinc-900/40 transition-all group backdrop-blur-md"
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className="text-3xl font-slab font-bold text-white/20 group-hover:text-brand-blue/30 transition-colors">
-                                        0{item.rank}
+                                <div className="flex justify-between items-start mb-8">
+                                    <span className="text-4xl font-heading font-black italic text-zinc-800 group-hover:text-brand-blue/20 transition-colors">
+                                        #{index + 1}
                                     </span>
-                                    <span className="bg-brand-blue text-white text-[10px] px-2 py-1 rounded font-bold uppercase">
+                                    <span className="bg-zinc-900 border border-white/10 text-brand-blue text-[8px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest">
                                         {item.subEvent}
                                     </span>
                                 </div>
-                                <h3 className="text-xl font-heading font-bold uppercase mb-1">{item.athleteName}</h3>
-                                <p className="text-white/50 text-xs uppercase tracking-wider mb-4">{item.clubName}</p>
-                                <div className="flex items-end justify-between">
-                                    <span className="text-2xl font-slab font-bold text-brand-blue">{item.score}</span>
+                                <h3 className="text-2xl font-heading font-black uppercase mb-1 text-white group-hover:text-brand-blue transition-colors italic">{item.athleteName}</h3>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="w-1 h-1 rounded-full bg-zinc-800"></div>
+                                    <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">{item.clubName}</p>
+                                </div>
+                                <div className="pt-6 border-t border-white/5 flex items-end justify-between">
+                                    <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-700">Final Score</span>
+                                    <span className="text-4xl font-heading font-black italic text-brand-blue drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">{item.score}</span>
                                 </div>
                             </motion.div>
                         ))

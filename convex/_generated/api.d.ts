@@ -10,6 +10,11 @@
 
 import type * as admin from "../admin.js";
 import type * as clubs from "../clubs.js";
+import type * as debug from "../debug.js";
+import type * as events from "../events.js";
+import type * as landing from "../landing.js";
+import type * as news from "../news.js";
+import type * as registrations from "../registrations.js";
 import type * as results from "../results.js";
 import type * as users from "../users.js";
 
@@ -22,6 +27,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   clubs: typeof clubs;
+  debug: typeof debug;
+  events: typeof events;
+  landing: typeof landing;
+  news: typeof news;
+  registrations: typeof registrations;
   results: typeof results;
   users: typeof users;
 }>;
