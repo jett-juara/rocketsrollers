@@ -1,25 +1,23 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin, requireSuperAdmin, getAdminOrNull } from "./lib/auth";
 
 // Fungsi untuk promosi user menjadi admin
 // Hanya bisa dipanggil oleh Superadmin
 export const promoteToAdmin = mutation({
     args: {
         targetAthleteId: v.id("athletes"),
-        adminClerkId: v.string(), // ID Superadmin yang memanggil
     },
     handler: async (ctx, args) => {
-        // 1. Verifikasi pemanggil adalah Superadmin
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
+        // Server-side auth - cannot be spoofed
+        await requireSuperAdmin(ctx);
 
-        if (!caller || caller.role !== "superadmin") {
-            throw new Error("Unauthorized: Hanya Superadmin yang bisa mengangkat Admin baru.");
+        // Validate target exists
+        const target = await ctx.db.get(args.targetAthleteId);
+        if (!target) {
+            throw new Error("Target athlete not found");
         }
 
-        // 2. Update role target
         await ctx.db.patch(args.targetAthleteId, {
             role: "admin",
         });
@@ -30,32 +28,20 @@ export const promoteToAdmin = mutation({
 
 // List semua user untuk dashboard management
 export const getAllUsers = query({
-    args: { adminClerkId: v.string() },
-    handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized: Akses dashboard manajemen ditolak.");
-        }
-
+    args: {},
+    handler: async (ctx) => {
+        const admin = await getAdminOrNull(ctx);
+        if (!admin) return null; // Return null if not authenticated/authorized yet
         return await ctx.db.query("athletes").collect();
     },
 });
+
 // List semua klub yang menunggu verifikasi
 export const getPendingClubs = query({
-    args: { adminClerkId: v.string() },
-    handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+    args: {},
+    handler: async (ctx) => {
+        const admin = await getAdminOrNull(ctx);
+        if (!admin) return null; // Return null if not authenticated/authorized yet
 
         return await ctx.db
             .query("clubs")
@@ -68,17 +54,9 @@ export const getPendingClubs = query({
 export const verifyClub = mutation({
     args: {
         clubId: v.id("clubs"),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+        await requireAdmin(ctx);
 
         await ctx.db.patch(args.clubId, {
             isVerified: true,
@@ -104,16 +82,10 @@ export const verifyClub = mutation({
 
 // Statistik Dashboard
 export const getAdminStats = query({
-    args: { adminClerkId: v.string() },
-    handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+    args: {},
+    handler: async (ctx) => {
+        const admin = await getAdminOrNull(ctx);
+        if (!admin) return null; // Return null if not authenticated/authorized yet
 
         const totalAthletes = await ctx.db.query("athletes").collect();
         const verifiedClubs = await ctx.db.query("clubs").filter(q => q.eq(q.field("isVerified"), true)).collect();
@@ -126,18 +98,13 @@ export const getAdminStats = query({
         };
     },
 });
+
 // Monitoring Aktivitas Terbaru (Atlet & Registrasi)
 export const getRecentActivities = query({
-    args: { adminClerkId: v.string() },
-    handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+    args: {},
+    handler: async (ctx) => {
+        const admin = await getAdminOrNull(ctx);
+        if (!admin) return null; // Return null if not authenticated/authorized yet
 
         const recentAthletes = await ctx.db.query("athletes").order("desc").take(5);
 
@@ -153,6 +120,7 @@ export const getRecentActivities = query({
         }));
     },
 });
+
 // Input Hasil Lomba & Kalkulasi Poin
 export const inputResult = mutation({
     args: {
@@ -162,17 +130,9 @@ export const inputResult = mutation({
         subEvent: v.string(),
         score: v.string(),
         rank: v.number(),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+        await requireAdmin(ctx);
 
         // Simpan Hasil
         const resultId = await ctx.db.insert("results", {
@@ -190,14 +150,11 @@ export const inputResult = mutation({
         else if (args.rank === 2) pointsToAdd = 10;
         else if (args.rank === 3) pointsToAdd = 7;
 
-        // Update Athlete's global points if we decide to store it in athlete table 
-        // For now, points are calculated by summing results.
-
         return { success: true, resultId, pointsEarned: pointsToAdd };
     },
 });
 
-// Update Stats to include points
+// Update Stats to include points (PUBLIC - no auth required)
 export const getAthleteLeaderboard = query({
     args: {},
     handler: async (ctx) => {

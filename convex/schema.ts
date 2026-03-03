@@ -63,4 +63,15 @@ export default defineSchema({
         score: v.string(), // "45.23s" or "100"
         rank: v.number(),
     }).index("by_event", ["eventId"]).index("by_athlete", ["athleteId"]),
+
+    landingPage: defineTable({
+        heroTitle: v.string(),
+        heroSlogan: v.string(),
+        heroEventInfo: v.string(),
+        heroBgUrl: v.optional(v.string()), // storage ID or URL
+        primaryCtaLabel: v.string(),
+        primaryCtaLink: v.string(),
+        secondaryCtaLabel: v.string(),
+        secondaryCtaLink: v.string(),
+    }),
 });

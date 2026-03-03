@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin, getAuthedAthlete } from "./lib/auth";
 
 export const get = query({
     args: {},
@@ -103,19 +104,10 @@ export const getMembers = query({
 export const getClubRequests = query({
     args: {
         clubId: v.id("clubs"),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "admin" && caller.role !== "superadmin")) {
-            if (caller?.fullName !== "Erik Admin") {
-                throw new Error("Unauthorized");
-            }
-        }
+        // Server-side auth - no more adminClerkId or Erik Admin bypass
+        await requireAdmin(ctx);
 
         const requests = await ctx.db
             .query("membershipRequests")
@@ -138,22 +130,13 @@ export const handleRequest = mutation({
     args: {
         requestId: v.id("membershipRequests"),
         status: v.union(v.literal("approved"), v.literal("rejected")),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
+        // Server-side auth - no more adminClerkId or Erik Admin bypass
+        await requireAdmin(ctx);
+
         const request = await ctx.db.get(args.requestId);
         if (!request) throw new Error("Request not found");
-
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "admin" && caller.role !== "superadmin")) {
-            if (caller?.fullName !== "Erik Admin") {
-                throw new Error("Unauthorized");
-            }
-        }
 
         // 1. Update status di tabel request
         await ctx.db.patch(args.requestId, { status: args.status });
@@ -175,3 +158,37 @@ export const handleRequest = mutation({
     },
 });
 
+// Update athlete profile - user can update own, admin can update anyone
+export const updateAthlete = mutation({
+    args: {
+        id: v.id("athletes"),
+        fullName: v.optional(v.string()),
+        birthDate: v.optional(v.string()),
+        gender: v.optional(v.union(v.literal("male"), v.literal("female"))),
+    },
+    handler: async (ctx, args) => {
+        const authedAthlete = await getAuthedAthlete(ctx);
+
+        // User can only update own profile, OR admin can update anyone
+        const isOwnProfile = authedAthlete._id === args.id;
+        const isAdmin = authedAthlete.role === "admin" || authedAthlete.role === "superadmin";
+
+        if (!isOwnProfile && !isAdmin) {
+            throw new Error("Unauthorized: Cannot update other user's profile");
+        }
+
+        const { id, ...updates } = args;
+
+        // Filter out undefined values
+        const cleanUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([_, v]) => v !== undefined)
+        );
+
+        if (Object.keys(cleanUpdates).length === 0) {
+            throw new Error("No updates provided");
+        }
+
+        await ctx.db.patch(id, cleanUpdates);
+        return { success: true };
+    },
+});

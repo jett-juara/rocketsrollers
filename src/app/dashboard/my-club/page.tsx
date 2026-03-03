@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
@@ -9,18 +9,28 @@ import { motion } from "framer-motion";
 
 export default function MyClubPage() {
     const { user, isLoaded } = useUser();
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
     const router = useRouter();
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
-    const club = useQuery(api.clubs.getClubById, athlete?.clubId ? { id: athlete.clubId } : "skip" as any);
-    const requests = useQuery(api.clubs.getClubRequests, athlete?.clubId ? {
-        clubId: athlete.clubId,
-        adminClerkId: user?.id || ""
-    } : "skip" as any);
-    const members = useQuery(api.clubs.getMembers, athlete?.clubId ? { clubId: athlete.clubId } : "skip" as any);
+
+    // Only run queries when BOTH Clerk AND Convex auth are ready
+    const isReady = isLoaded && !!user && isConvexAuthenticated && !isConvexLoading;
+
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        isReady ? { userId: user.id } : "skip"
+    );
+    const club = useQuery(api.clubs.getClubById,
+        athlete?.clubId ? { id: athlete.clubId } : "skip"
+    );
+    const requests = useQuery(api.clubs.getClubRequests,
+        athlete?.clubId ? { clubId: athlete.clubId } : "skip"
+    );
+    const members = useQuery(api.clubs.getMembers,
+        athlete?.clubId ? { clubId: athlete.clubId } : "skip"
+    );
 
     const handleRequest = useMutation(api.clubs.handleRequest);
 
-    if (!isLoaded || athlete === undefined || club === undefined || requests === undefined || members === undefined) return (
+    if (!isReady || athlete === undefined || club === undefined || requests === undefined || members === undefined) return (
         <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
             Menghubungi Markas Klub...
         </div>
@@ -39,7 +49,7 @@ export default function MyClubPage() {
 
     const onHandleMember = async (requestId: any, status: "approved" | "rejected") => {
         try {
-            await handleRequest({ requestId, status, adminClerkId: user?.id || "" });
+            await handleRequest({ requestId, status });
         } catch (error) {
             console.error(error);
         }

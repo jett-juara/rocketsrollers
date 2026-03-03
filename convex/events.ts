@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/auth";
 
 // Create a new event/series
 export const create = mutation({
@@ -10,20 +11,10 @@ export const create = mutation({
         description: v.string(),
         type: v.union(v.literal("tickets"), v.literal("soon")),
         isBadge: v.optional(v.boolean()),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
-
-        const { adminClerkId, ...eventData } = args;
-        return await ctx.db.insert("events", eventData);
+        await requireAdmin(ctx);
+        return await ctx.db.insert("events", args);
     },
 });
 
@@ -37,19 +28,11 @@ export const update = mutation({
         description: v.optional(v.string()),
         type: v.optional(v.union(v.literal("tickets"), v.literal("soon"))),
         isBadge: v.optional(v.boolean()),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
+        await requireAdmin(ctx);
 
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
-
-        const { id, adminClerkId, ...updates } = args;
+        const { id, ...updates } = args;
         await ctx.db.patch(id, updates);
     },
 });
@@ -58,18 +41,9 @@ export const update = mutation({
 export const remove = mutation({
     args: {
         id: v.id("events"),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
-
+        await requireAdmin(ctx);
         await ctx.db.delete(args.id);
     },
 });

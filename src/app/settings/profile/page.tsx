@@ -1,8 +1,8 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import { motion } from "framer-motion";
@@ -10,8 +10,15 @@ import { useState, useEffect } from "react";
 
 export default function ProfileSettingsPage() {
     const { user, isLoaded } = useUser();
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
     const router = useRouter();
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
+
+    // Only run queries when BOTH Clerk AND Convex auth are ready
+    const isReady = isLoaded && !!user && isConvexAuthenticated && !isConvexLoading;
+
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        isReady ? { userId: user.id } : "skip"
+    );
     const updateAthlete = useMutation(api.clubs.updateAthlete);
 
     const [form, setForm] = useState({
@@ -31,11 +38,17 @@ export default function ProfileSettingsPage() {
         }
     }, [athlete]);
 
-    if (!isLoaded || athlete === undefined) return (
+    if (!isReady || athlete === undefined) return (
         <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
             Membuka Berkas Atlet...
         </div>
     );
+
+    // Handle case where athlete profile was not found
+    if (!athlete) {
+        router.push("/onboarding/complete-profile");
+        return null;
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

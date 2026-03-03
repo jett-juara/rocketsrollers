@@ -4,37 +4,84 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Header from "@/components/layout/Header";
 import { motion } from "framer-motion";
 
 export default function AdminDashboard() {
     const { user, isLoaded } = useUser();
     const router = useRouter();
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
-    const stats = useQuery(api.admin.getAdminStats, { adminClerkId: user?.id || "" });
-    const pendingClubs = useQuery(api.admin.getPendingClubs, { adminClerkId: user?.id || "" });
-    const activities = useQuery(api.admin.getRecentActivities, { adminClerkId: user?.id || "" });
+
+    // Always run queries - backend handles auth gracefully by returning null
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        user?.id ? { userId: user.id } : "skip"
+    );
+    const stats = useQuery(api.admin.getAdminStats);
+    const pendingClubs = useQuery(api.admin.getPendingClubs);
+    const activities = useQuery(api.admin.getRecentActivities);
     const verifyClub = useMutation(api.admin.verifyClub);
 
-    if (!isLoaded || athlete === undefined || stats === undefined || activities === undefined) return (
+    // Determine auth/admin status
+    const isDataLoaded = athlete !== undefined && stats !== undefined && activities !== undefined;
+    const isNotAuthorized = isDataLoaded && (stats === null || activities === null || !athlete);
+    const isAdmin = athlete?.role === "superadmin" || athlete?.role === "admin";
+
+    // DEBUG: Log state untuk diagnosa
+    console.log("[Admin Debug]", {
+        isLoaded,
+        hasUser: !!user,
+        athlete: athlete === undefined ? "loading" : athlete === null ? "null" : { role: athlete?.role, fullName: athlete?.fullName },
+        stats: stats === undefined ? "loading" : stats === null ? "null" : "loaded",
+        activities: activities === undefined ? "loading" : activities === null ? "null" : "loaded",
+        isDataLoaded,
+        isNotAuthorized,
+        isAdmin
+    });
+
+    // Handle redirects in useEffect (not during render)
+    useEffect(() => {
+        if (isLoaded && !user) {
+            console.log("[Admin] Redirecting: not logged in");
+            router.push("/login");
+        } else if (isNotAuthorized || (isDataLoaded && !isAdmin)) {
+            console.log("[Admin] Redirecting: not authorized", { isNotAuthorized, isAdmin });
+            router.push("/");
+        }
+    }, [isLoaded, user, isNotAuthorized, isDataLoaded, isAdmin, router]);
+
+    // Show loading while Clerk is loading
+    if (!isLoaded) return (
+        <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
+            Memuat...
+        </div>
+    );
+
+    // Show loading if not logged in (will redirect)
+    if (!user) return (
+        <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
+            Mengalihkan...
+        </div>
+    );
+
+    // Show loading while data is loading
+    if (!isDataLoaded) return (
         <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
             Memuat Dashboard Admin...
         </div>
     );
 
-    // Security Check
-    const isAdmin = athlete?.role === "superadmin" || athlete?.role === "admin";
-    if (!isAdmin) {
-        router.push("/");
-        return null;
-    }
+    // Show loading if not authorized (will redirect)
+    if (isNotAuthorized || !isAdmin || !athlete) return (
+        <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
+            Akses Ditolak...
+        </div>
+    );
 
     const handleVerifyClub = async (clubId: any) => {
         if (!confirm("Konfirmasi verifikasi klub ini?")) return;
         try {
             await verifyClub({
                 clubId,
-                adminClerkId: user?.id || ""
             });
         } catch (error) {
             console.error("Gagal verifikasi:", error);
@@ -55,8 +102,8 @@ export default function AdminDashboard() {
                 </motion.div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                    <StatCard label="Total Atlet" value={stats.totalAthletes.toString()} delay={0.1} />
-                    <StatCard label="Klub" value={stats.verifiedClubs.toString()} subValue="Terverifikasi" delay={0.2} />
+                    <StatCard label="Total Atlet" value={stats!.totalAthletes.toString()} delay={0.1} />
+                    <StatCard label="Klub" value={stats!.verifiedClubs.toString()} subValue="Terverifikasi" delay={0.2} />
                     <QuickAction label="Kelola Events" icon="🏁" onClick={() => router.push("/admin/events")} delay={0.3} />
                     <QuickAction label="Kelola News" icon="📰" onClick={() => router.push("/admin/news")} delay={0.4} />
                 </div>

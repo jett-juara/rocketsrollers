@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/auth";
 
 // Helper to determine KU based on birth year
 function getKU(birthYear: number) {
@@ -54,16 +55,9 @@ export const create = mutation({
 
 // Get registrations for an event (Admin)
 export const getForEvent = query({
-    args: { eventId: v.id("events"), adminClerkId: v.string() },
+    args: { eventId: v.id("events") },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+        await requireAdmin(ctx);
 
         const regs = await ctx.db
             .query("registrations")
@@ -88,18 +82,9 @@ export const updateStatus = mutation({
     args: {
         id: v.id("registrations"),
         status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
-        adminClerkId: v.string(),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
-
+        await requireAdmin(ctx);
         await ctx.db.patch(args.id, { status: args.status });
     },
 });

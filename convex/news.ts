@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/auth";
 
 export const list = query({
     args: { limit: v.optional(v.number()) },
@@ -16,18 +17,10 @@ export const create = mutation({
         title: v.string(),
         content: v.string(),
         category: v.string(),
-        image: v.optional(v.string()), // URL or storage ID
-        adminClerkId: v.string(),
+        image: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
+        await requireAdmin(ctx);
 
         return await ctx.db.insert("news", {
             title: args.title,
@@ -40,17 +33,9 @@ export const create = mutation({
 });
 
 export const remove = mutation({
-    args: { id: v.id("news"), adminClerkId: v.string() },
+    args: { id: v.id("news") },
     handler: async (ctx, args) => {
-        const caller = await ctx.db
-            .query("athletes")
-            .withIndex("by_userId", (q) => q.eq("userId", args.adminClerkId))
-            .unique();
-
-        if (!caller || (caller.role !== "superadmin" && caller.role !== "admin")) {
-            throw new Error("Unauthorized");
-        }
-
+        await requireAdmin(ctx);
         await ctx.db.delete(args.id);
     },
 });

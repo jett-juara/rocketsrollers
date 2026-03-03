@@ -1,8 +1,8 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import { motion } from "framer-motion";
@@ -10,9 +10,18 @@ import { useState } from "react";
 
 export default function AdminNewsPage() {
     const { user, isLoaded } = useUser();
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
     const router = useRouter();
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
-    const news = useQuery(api.news.list, {});
+
+    // Only run queries when BOTH Clerk AND Convex auth are ready
+    const isReady = isLoaded && !!user && isConvexAuthenticated && !isConvexLoading;
+
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        isReady ? { userId: user.id } : "skip"
+    );
+    const news = useQuery(api.news.list,
+        isReady ? {} : "skip"
+    );
     const createNews = useMutation(api.news.create);
     const removeNews = useMutation(api.news.remove);
 
@@ -23,7 +32,7 @@ export default function AdminNewsPage() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    if (!isLoaded || athlete === undefined || news === undefined) return (
+    if (!isReady || athlete === undefined || news === undefined) return (
         <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
             Menyiapkan Meja Redaksi...
         </div>
@@ -41,7 +50,6 @@ export default function AdminNewsPage() {
         try {
             await createNews({
                 ...form,
-                adminClerkId: user?.id || ""
             });
             setForm({ title: "", category: "OFFICIAL NEWS", content: "" });
             alert("Berita berhasil diterbitkan!");
@@ -56,7 +64,7 @@ export default function AdminNewsPage() {
     const handleDelete = async (id: any) => {
         if (!confirm("Hapus berita ini?")) return;
         try {
-            await removeNews({ id, adminClerkId: user?.id || "" });
+            await removeNews({ id });
         } catch (error) {
             console.error(error);
         }

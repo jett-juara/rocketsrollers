@@ -2,16 +2,33 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function Hero() {
+    const landingData = useQuery(api.landing.getLandingData);
+
+    const content = {
+        title: landingData?.heroTitle || "ROCKETS\nROLLERS",
+        slogan: landingData?.heroSlogan || "Speed • Skill • Glory",
+        eventInfo: landingData?.heroEventInfo || "Sirkuit Kanjuruhan, Malang | 3 – 5 Okt",
+        primaryLabel: landingData?.primaryCtaLabel || "Daftar Klub",
+        primaryLink: landingData?.primaryCtaLink || "/onboarding/join-club",
+        secondaryLabel: landingData?.secondaryCtaLabel || "Jalur Privat",
+        secondaryLink: landingData?.secondaryCtaLink || "/onboarding/confirm-private",
+        bgUrl: landingData?.heroBgUrl || "/images/hero_bg.png"
+    };
+
     return (
         <header className="relative h-screen min-h-[850px] flex items-center justify-center overflow-hidden bg-black">
             {/* Background Layer with Animation */}
             <motion.div
+                key={content.bgUrl}
                 initial={{ scale: 1.1, opacity: 0 }}
                 animate={{ scale: 1, opacity: 0.7 }}
                 transition={{ duration: 1.5, ease: "easeOut" }}
-                className="absolute inset-0 bg-[url('/images/hero_bg.png')] bg-cover bg-center"
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url('${content.bgUrl}')` }}
             ></motion.div>
 
             {/* Overlays */}
@@ -29,32 +46,28 @@ export default function Hero() {
                     transition={{ delay: 0.5, duration: 0.8 }}
                 >
                     <span className="text-brand-blue font-heading font-black uppercase tracking-[0.6em] text-xs md:text-sm mb-6 block drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
-                        Speed • Skill • Glory
+                        {content.slogan}
                     </span>
-                    <h1 className="text-white font-heading text-[65px] md:text-[130px] font-black leading-[1.1] uppercase mb-10 tracking-tight italic drop-shadow-2xl py-6 px-20">
-                        ROCKETS<br />
-                        <span className="inline-block px-8 text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-400 to-white/20">ROLLERS</span>
+                    <h1 className="text-white font-heading text-[65px] md:text-[130px] font-black leading-[1.1] uppercase mb-10 tracking-tight italic drop-shadow-2xl py-6 px-10 md:px-20 whitespace-pre-line">
+                        {content.title}
                     </h1>
+
                     <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-14">
-                        <span className="text-white/60 font-body text-sm uppercase tracking-[0.3em] font-bold">Series #2 2025</span>
-                        <div className="hidden md:block w-1.5 h-1.5 rounded-full bg-brand-blue"></div>
-                        <span className="text-white/90 font-body text-lg md:text-xl uppercase tracking-widest font-black italic">Sirkuit Kanjuruhan, Malang</span>
-                        <div className="hidden md:block w-1.5 h-1.5 rounded-full bg-brand-blue"></div>
-                        <span className="text-brand-blue font-body text-lg md:text-xl uppercase tracking-widest font-black italic">3 – 5 Okt</span>
+                        <span className="text-white/90 font-body text-lg md:text-xl uppercase tracking-widest font-black italic">{content.eventInfo}</span>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                         <Link
-                            href="/onboarding/join-club"
+                            href={content.primaryLink}
                             className="w-full sm:w-auto bg-white text-black text-sm px-16 py-6 rounded-2xl font-heading font-black uppercase tracking-[0.2em] hover:bg-brand-blue hover:text-white transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:-translate-y-2 group"
                         >
-                            Daftar Klub <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">→</span>
+                            {content.primaryLabel} <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">→</span>
                         </Link>
                         <Link
-                            href="/onboarding/confirm-private"
+                            href={content.secondaryLink}
                             className="w-full sm:w-auto bg-zinc-900/50 backdrop-blur-md border border-white/10 text-white text-sm px-16 py-6 rounded-2xl font-heading font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all duration-500 hover:-translate-y-2"
                         >
-                            Jalur Privat
+                            {content.secondaryLabel}
                         </Link>
                     </div>
                 </motion.div>

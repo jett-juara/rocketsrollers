@@ -1,8 +1,8 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import { motion } from "framer-motion";
@@ -10,15 +10,22 @@ import { useState } from "react";
 
 export default function AdminResultsPage() {
     const { user, isLoaded } = useUser();
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
     const router = useRouter();
     const { eventId } = useParams();
 
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
-    const event = useQuery(api.events.getById, { id: eventId as any });
-    const registrations = useQuery(api.registrations.getForEvent, {
-        eventId: eventId as any,
-        adminClerkId: user?.id || ""
-    });
+    // Only run queries when BOTH Clerk AND Convex auth are ready
+    const isReady = isLoaded && !!user && isConvexAuthenticated && !isConvexLoading;
+
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        isReady ? { userId: user.id } : "skip"
+    );
+    const event = useQuery(api.events.getById,
+        isReady ? { id: eventId as any } : "skip"
+    );
+    const registrations = useQuery(api.registrations.getForEvent,
+        isReady ? { eventId: eventId as any } : "skip"
+    );
 
     const inputResult = useMutation(api.admin.inputResult);
 
@@ -29,7 +36,7 @@ export default function AdminResultsPage() {
         rank: 1
     });
 
-    if (!isLoaded || athlete === undefined || registrations === undefined || event === undefined) return (
+    if (!isReady || athlete === undefined || registrations === undefined || event === undefined) return (
         <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
             Memuat Data Pendaftar...
         </div>
@@ -39,6 +46,15 @@ export default function AdminResultsPage() {
     if (!isAdmin) {
         router.push("/");
         return null;
+    }
+
+    // Handle case where event was not found
+    if (!event) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] uppercase text-sm">
+                Event tidak ditemukan.
+            </div>
+        );
     }
 
     const handleInputResult = async (e: React.FormEvent) => {
@@ -53,7 +69,6 @@ export default function AdminResultsPage() {
                 subEvent: resultForm.subEvent,
                 score: resultForm.score,
                 rank: resultForm.rank,
-                adminClerkId: user?.id || ""
             });
             alert("Hasil berhasil disimpan!");
             setSelectedReg(null);

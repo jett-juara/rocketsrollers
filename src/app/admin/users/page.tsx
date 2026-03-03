@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,18 +10,26 @@ import { useState } from "react";
 
 export default function UserManagementPage() {
     const { user, isLoaded } = useUser();
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
     const router = useRouter();
 
+    // Only run queries when BOTH Clerk AND Convex auth are ready
+    const isReady = isLoaded && !!user && isConvexAuthenticated && !isConvexLoading;
+
     // Auth context
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        isReady ? { userId: user.id } : "skip"
+    );
 
     // Data Management
-    const allUsers = useQuery(api.admin.getAllUsers, { adminClerkId: user?.id || "" });
+    const allUsers = useQuery(api.admin.getAllUsers,
+        isReady ? {} : "skip"
+    );
     const promoteUser = useMutation(api.admin.promoteToAdmin);
 
     const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error", text: string } | null>(null);
 
-    if (!isLoaded || !athlete || !allUsers) {
+    if (!isReady || !athlete || !allUsers) {
         return <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading animate-pulse">AUTHING MANAGEMENT...</div>;
     }
 
@@ -36,7 +44,6 @@ export default function UserManagementPage() {
         try {
             await promoteUser({
                 targetAthleteId: targetId,
-                adminClerkId: user?.id || "",
             });
             setStatusMsg({ type: "success", text: `${name} sekarang resmi jadi Admin!` });
             setTimeout(() => setStatusMsg(null), 3000);

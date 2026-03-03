@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
@@ -10,9 +10,18 @@ import { useState } from "react";
 
 export default function AdminEventsPage() {
     const { user, isLoaded } = useUser();
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
     const router = useRouter();
-    const athlete = useQuery(api.clubs.getAthleteByUserId, { userId: user?.id || "" });
-    const events = useQuery(api.events.list);
+
+    // Only run queries when BOTH Clerk AND Convex auth are ready
+    const isReady = isLoaded && !!user && isConvexAuthenticated && !isConvexLoading;
+
+    const athlete = useQuery(api.clubs.getAthleteByUserId,
+        isReady ? { userId: user.id } : "skip"
+    );
+    const events = useQuery(api.events.list,
+        isReady ? undefined : "skip"
+    );
 
     const createEvent = useMutation(api.events.create);
     const updateEvent = useMutation(api.events.update);
@@ -28,7 +37,7 @@ export default function AdminEventsPage() {
         isBadge: false
     });
 
-    if (!isLoaded || athlete === undefined || events === undefined) return (
+    if (!isReady || athlete === undefined || events === undefined) return (
         <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 font-heading tracking-[0.3em] animate-pulse uppercase text-sm">
             Memuat Data Event...
         </div>
@@ -45,7 +54,6 @@ export default function AdminEventsPage() {
         try {
             await createEvent({
                 ...formData,
-                adminClerkId: user?.id || ""
             });
             setIsAdding(false);
             setFormData({ name: "", date: "", location: "", description: "", type: "tickets", isBadge: false });
@@ -57,7 +65,7 @@ export default function AdminEventsPage() {
     const handleDelete = async (id: any) => {
         if (!confirm("Hapus event ini? Data pendaftaran yang terkait mungkin bermasalah.")) return;
         try {
-            await deleteEvent({ id, adminClerkId: user?.id || "" });
+            await deleteEvent({ id });
         } catch (error) {
             console.error("Gagal hapus:", error);
         }
