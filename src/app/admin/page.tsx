@@ -106,6 +106,7 @@ export default function AdminDashboard() {
                     <StatCard label="Klub" value={stats!.verifiedClubs.toString()} subValue="Terverifikasi" delay={0.2} />
                     <QuickAction label="Kelola Events" icon="🏁" onClick={() => router.push("/admin/events")} delay={0.3} />
                     <QuickAction label="Kelola News" icon="📰" onClick={() => router.push("/admin/news")} delay={0.4} />
+                    <QuickAction label="Kelola CMS" icon="🛠️" onClick={() => router.push("/admin/cms")} delay={0.5} />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
